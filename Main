@@ -1,0 +1,121 @@
+import math
+
+class Expr:
+    def __init__(self):
+        self.children = []
+
+    def run(self):
+        assert False
+
+class UnaryExpr(Expr):
+    def __init__(self, e):
+        self.children = [e]
+        self.symbol = "?"
+    def __repr__(self):
+        return "{} {} ".format(self.symbol, self.children[0])
+
+class Factorial(UnaryExpr):
+    def __init__(self, e):
+        super().__init__(e)
+        self.symbol = "fact"
+    def run(self):
+        x = self.children[0].run()
+        if math.isnan(x):
+            return math.nan
+        n = round(x)
+        if abs(n-x) < 1e-8 and n >= 0 and n < 100:
+            p = 1
+            for i in range(1,n+1):
+                p *= i
+            return p
+        else:
+            return math.nan
+
+class Sqrt(UnaryExpr):
+    def __init__(self, e):
+        super().__init__(e)
+        self.symbol = "sqrt"
+
+    def run(self):
+        x = self.children[0].run()
+        if x < 0:
+            return math.nan
+        else:
+            return math.sqrt(x)
+
+class BinExpr(Expr):
+    def __init__(self, e1, e2):
+        assert e1 is not None
+        assert e2 is not None
+        self.children = [e1, e2]
+        self.symbol = "?"
+
+    def __repr__(self):
+        return "({} {} {})".format(self.children[0], self.symbol, self.children[1])
+
+class Plus(BinExpr):
+    def __init__(self, e1, e2):
+        super().__init__(e1, e2)
+        self.symbol = "+"
+    def run(self):
+        return self.children[0].run() + self.children[1].run()
+
+class Times(BinExpr):
+    def __init__(self, e1, e2):
+        super().__init__(e1, e2)
+        self.symbol = "*"
+    def run(self):
+        return self.children[0].run() * self.children[1].run()
+
+class Div(BinExpr):
+    def __init__(self, e1, e2):
+        super().__init__(e1, e2)
+        self.symbol = "/"
+    def run(self):
+        q = self.children[1].run()
+        if q != 0:
+            return self.children[0].run()/self.children[1].run()
+        else:
+            return math.nan
+
+class Sub(BinExpr):
+    def __init__(self, e1, e2):
+        super().__init__(e1, e2)
+        self.symbol = "-"
+    def run(self):
+        return self.children[0].run() - self.children[1].run()
+
+class Leaf(Expr):
+    def __init__(self, n):
+        self.n = n
+        self.children = []
+
+    def run(self):
+        return self.n
+
+    def __repr__(self):
+        return str(self.n)
+
+validops = [Plus, Times, Div, Sub]
+unops = {"fact":Factorial,"sqrt":Sqrt}
+
+def gentrees(leaftype, leafno, unaryops):
+    if leafno == 1:
+        yield leaftype
+
+    for op in validops:
+        for balance in range(1, leafno):
+            for l1 in gentrees(leaftype, balance, unaryops):
+                for l2 in gentrees(leaftype, leafno-balance, unaryops):
+                    yield op(l1, l2)
+    for op in unaryops:
+        newunaryops = unaryops.copy()
+        newunaryops[op] -= 1
+        if newunaryops[op] == 0:
+            del newunaryops[op]
+        for l in gentrees(leaftype, leafno, newunaryops):
+            yield unops[op](l)
+
+for t in gentrees(Leaf(8), 3, {"fact":3}):
+    if abs(t.run() - 6) < 1e-8:
+        print(t)
